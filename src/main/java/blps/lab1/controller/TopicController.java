@@ -1,0 +1,77 @@
+package blps.lab1.controller;
+
+import blps.lab1.model.domain.Topic;
+import blps.lab1.model.domain.TopicCategory;
+import blps.lab1.model.requests.CreateTopicRequest;
+import blps.lab1.model.responses.TopicView;
+import blps.lab1.service.TopicService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.*;
+
+@RestController
+@RequestMapping("api/v1/topic")
+public class TopicController {
+    private TopicService topicService;
+
+    @Autowired
+    public TopicController(TopicService topicService) {
+        this.topicService = topicService;
+    }
+
+    @GetMapping("/{id}")
+    public Topic getTopic(@PathVariable String id) {
+        try {
+            Optional<Topic> topic = topicService.findById(Long.parseLong(id));
+            return topic.orElseThrow();
+        } catch (NumberFormatException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+        } catch (NoSuchElementException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
+    }
+
+    @DeleteMapping("/{id}")
+    public Long deleteTopic(@PathVariable String id) {
+        try {
+            Optional<Long> topicId = topicService.delete(Long.parseLong(id));
+            return topicId.orElseThrow();
+        } catch (NumberFormatException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+        } catch (NoSuchElementException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
+    }
+
+    @PutMapping(value = "/{id}", consumes = "application/json")
+    public Topic updateTopic(@PathVariable String id, @RequestBody CreateTopicRequest req) {
+        try {
+            return topicService.update(Long.parseLong(id), req);
+        } catch (NumberFormatException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+        } catch (NoSuchElementException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
+    }
+
+    @PostMapping(value = "/", consumes = "application/json")
+    public TopicView createTopic(@RequestBody CreateTopicRequest req ) {
+        try {
+            Date currentDate = new Date();
+            Topic topic = topicService.save(
+                    new Topic(req.getTitle(),
+                            req.getDescription(),
+                            req.getContent(),
+                            TopicCategory.valueOf(req.getCategory().toUpperCase()),
+                            currentDate,
+                            currentDate
+                    ));
+            return TopicView.fromTopic(topic);
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "There is no such topic category");
+        }
+    }
+}
