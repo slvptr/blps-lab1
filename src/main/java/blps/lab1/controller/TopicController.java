@@ -26,11 +26,9 @@ public class TopicController {
     public Topic getTopic(@PathVariable String id) {
         try {
             Optional<Topic> topic = topicService.findById(Long.parseLong(id));
-            return topic.orElseThrow();
+            return topic.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         } catch (NumberFormatException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
-        } catch (NoSuchElementException e) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }
     }
 
@@ -38,22 +36,20 @@ public class TopicController {
     public Long deleteTopic(@PathVariable String id) {
         try {
             Optional<Long> topicId = topicService.delete(Long.parseLong(id));
-            return topicId.orElseThrow();
+            return topicId.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         } catch (NumberFormatException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
-        } catch (NoSuchElementException e) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }
     }
 
     @PutMapping(value = "/{id}", consumes = "application/json")
     public Topic updateTopic(@PathVariable String id, @RequestBody CreateTopicRequest req) {
         try {
-            return topicService.update(Long.parseLong(id), req);
+            Topic topic = topicService.update(Long.parseLong(id), req);
+            if (topic == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+            return topic;
         } catch (NumberFormatException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
-        } catch (NoSuchElementException e) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }
     }
 

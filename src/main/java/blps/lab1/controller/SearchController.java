@@ -1,15 +1,15 @@
 package blps.lab1.controller;
 
 
+import blps.lab1.common.Constants;
 import blps.lab1.model.domain.TopicCategory;
-import blps.lab1.model.responses.TopicView;
+import blps.lab1.model.responses.TopicViewPage;
 import blps.lab1.service.TopicService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 
 @RestController
@@ -23,41 +23,25 @@ public class SearchController {
     }
 
     @GetMapping("/")
-    public List<TopicView> searchAllByQuery(@RequestParam Optional<String> query) {
+    public TopicViewPage searchAllByQuery(
+            @RequestParam(value = "query", defaultValue = "", required = false) String query,
+            @RequestParam(value = "category",  defaultValue = "", required = false) String category,
+            @RequestParam(value = "pageNumber", defaultValue = Constants.DEFAULT_PAGE_NUMBER, required = false) int pageNumber,
+            @RequestParam(value = "pageSize", defaultValue = Constants.DEFAULT_PAGE_SIZE, required = false) int pageSize,
+            @RequestParam(value = "sortBy", defaultValue = Constants.DEFAULT_SORT_BY, required = false) String sortBy,
+            @RequestParam(value = "sortDir", defaultValue = Constants.DEFAULT_SORT_DIRECTION, required = false) String sortDir
+    ) {
         try {
-            return topicService.findAllByQuery(query.orElseThrow()).stream().map(TopicView::fromTopic).toList();
-        } catch (NoSuchElementException e) {
-            return topicService.findAll().stream().map(TopicView::fromTopic).toList();
-        }
-    }
-
-    @GetMapping("/news")
-    public List<TopicView> searchNewsByQuery(@RequestParam Optional<String> query) {
-        try {
-            return topicService.findByCategoryAndQuery(TopicCategory.NEWS,
-                    query.orElseThrow()).stream().map(TopicView::fromTopic).toList();
-        } catch (NoSuchElementException e) {
-            return topicService.findByCategory(TopicCategory.NEWS).stream().map(TopicView::fromTopic).toList();
-        }
-    }
-
-    @GetMapping("/articles")
-    public List<TopicView> searchArticlesByQuery(@RequestParam Optional<String> query) {
-        try {
-            return topicService.findByCategoryAndQuery(TopicCategory.ARTICLES,
-                    query.orElseThrow()).stream().map(TopicView::fromTopic).toList();
-        } catch (NoSuchElementException e) {
-            return topicService.findByCategory(TopicCategory.ARTICLES).stream().map(TopicView::fromTopic).toList();
-        }
-    }
-
-    @GetMapping("/test-drives")
-    public List<TopicView> searchTestDrivesByQuery(@RequestParam Optional<String> query) {
-        try {
-            return topicService.findByCategoryAndQuery(TopicCategory.TEST_DRIVES,
-                    query.orElseThrow()).stream().map(TopicView::fromTopic).toList();
-        } catch (NoSuchElementException e) {
-            return topicService.findByCategory(TopicCategory.TEST_DRIVES).stream().map(TopicView::fromTopic).toList();
+            Optional<TopicCategory> optionalCategory;
+            if (category.isEmpty()) {
+                optionalCategory = Optional.empty();
+            }
+            else {
+                optionalCategory = Optional.of(TopicCategory.valueOf(category.toUpperCase()));
+            }
+            return topicService.findByQuery(query, pageNumber, pageSize, sortBy, sortDir, optionalCategory);
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
         }
     }
 }

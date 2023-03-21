@@ -4,16 +4,24 @@ import blps.lab1.model.domain.Topic;
 import blps.lab1.dao.TopicRepository;
 import blps.lab1.model.domain.TopicCategory;
 import blps.lab1.model.requests.CreateTopicRequest;
+import blps.lab1.model.responses.TopicView;
+import blps.lab1.model.responses.TopicViewPage;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
 @Service
 public class TopicService {
-    private TopicRepository topicRepository;
+    private final TopicRepository topicRepository;
     @Autowired
     public TopicService(TopicRepository topicRepository) {
         this.topicRepository = topicRepository;
@@ -32,7 +40,10 @@ public class TopicService {
     }
 
     public Topic update(long id, CreateTopicRequest req) {
-        Topic topic = topicRepository.findById(id).orElseThrow();
+        Optional<Topic> topicOptional = topicRepository.findById(id);
+        if (topicOptional.isEmpty()) return null;
+
+        Topic topic = topicOptional.get();
         topic.setTitle(req.getTitle());
         topic.setDescription(req.getDescription());
         topic.setContent(req.getContent());
@@ -45,18 +56,46 @@ public class TopicService {
         return topicRepository.findById(id);
     }
 
-    public List<Topic> findAll() {
-        return topicRepository.findAll();
-    }
+    public TopicViewPage findByQuery(
+            String query,
+            int pageNumber,
+            int pageSize,
+            String sortBy,
+            String sortDir,
+            Optional<TopicCategory> category
+    ) {
+        if (pageNumber < 0
+                || pageSize < 0
+                || !List.of("asc", "desc").contains(sortDir)
+                || !List.of("id", "createdAt", "updatedAt").contains(sortBy)
+        ) {
+            throw new IllegalArgumentException();
+        }
 
-    public List<Topic> findByCategory(TopicCategory category) {
-        return topicRepository.findAllByCategory(category);
-    }
-    public List<Topic> findAllByQuery(String query) {
-        return topicRepository.findByQuery(query);
-    }
+        Sort sort = sortDir.equalsIgnoreCase(Sort.Direction.ASC.name())
+                ? Sort.by(sortBy).ascending()
+                : Sort.by(sortBy).descending();
 
-    public List<Topic> findByCategoryAndQuery(TopicCategory category, String query) {
-        return topicRepository.findByCategoryAndQuery(category, query);
+        Pageable pageable = PageRequest.of(pageNumber, pageSize, sort);
+
+        Page<Topic> pageableTopics;
+        if (category.isPresent()) {
+            pageableTopics = topicRepository.findByCategoryAndQuery(category.get(), query, pageable);
+        }
+        else {
+            pageableTopics = query.isEmpty()
+                    ? topicRepository.findAll(pageable)
+                    : topicRepository.findByQuery(query, pageable);
+        }
+
+        List<TopicView> topicViews = pageableTopics.getContent().stream().map(TopicView::fromTopic).toList();
+
+        return new TopicViewPage(topicViews,
+                pageableTopics.getNumber(),
+                pageableTopics.getSize(),
+                pageableTopics.getTotalElements(),
+                pageableTopics.getTotalPages(),
+                pageableTopics.isLast()
+        );
     }
 }
